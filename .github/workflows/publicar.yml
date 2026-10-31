@@ -1,0 +1,47 @@
+# Publica o site da Galera da Raquete em galeradaraquete.github.io.
+# O código continua em murilodannis123-lang/galera-da-raquete (público): a cada 5 minutos este fluxo
+# confere se mudou algo lá e, se mudou, publica aqui. Também dá pra rodar na mão em Actions > Publicar site.
+name: Publicar site
+on:
+  schedule:
+    - cron: '*/5 * * * *'
+  workflow_dispatch:
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+concurrency:
+  group: pages
+  cancel-in-progress: false
+jobs:
+  publicar:
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+    steps:
+      - name: Versão atual do site
+        id: sha
+        run: echo "sha=$(git ls-remote https://github.com/murilodannis123-lang/galera-da-raquete.git refs/heads/main | cut -f1)" >> "$GITHUB_OUTPUT"
+      - name: Já publicada?
+        id: feito
+        uses: actions/cache@v4
+        with:
+          path: .publicado
+          key: publicado-${{ steps.sha.outputs.sha }}
+      - name: Baixar o site
+        if: steps.feito.outputs.cache-hit != 'true'
+        uses: actions/checkout@v4
+        with:
+          repository: murilodannis123-lang/galera-da-raquete
+          ref: ${{ steps.sha.outputs.sha }}
+          path: site
+      - name: Preparar
+        run: mkdir -p .publicado && echo "${{ steps.sha.outputs.sha }}" > .publicado/sha && rm -rf site/.git site/.github
+      - name: Empacotar
+        if: steps.feito.outputs.cache-hit != 'true'
+        uses: actions/upload-pages-artifact@v3
+        with:
+          path: site
+      - name: Publicar
+        if: steps.feito.outputs.cache-hit != 'true'
+        uses: actions/deploy-pages@v4
